@@ -3,7 +3,7 @@
 - [原理解析](#原理解析)
 - [准备脉冲文件](#准备脉冲文件)
 - [配置虚拟 7.1 环绕声](#配置虚拟-71-环绕声)
-- [WirePlumber蓝牙LDAC配置](#wireplumber蓝牙ldac配置)
+- [WirePlumber蓝牙LDAC与优先级配置](#wireplumber蓝牙ldac与优先级配置)
 - [重启服务与验证](#重启服务与验证)
 
 ---
@@ -40,13 +40,17 @@ cp /usr/share/pipewire/filter-chain/sink-virtual-surround-7.1-hesuvi.conf ~/.con
 sed -i -E "s|filename\s*=\s*\"[^\"]*\"|filename = \"$HOME/.config/pipewire/hrir/atmos.wav\"|g" ~/.config/pipewire/pipewire.conf.d/99-virtual-surround.conf
 ```
 
-> 模板默认不需要改动输出目标，WirePlumber 会自动跟随当前系统的默认输出设备。连上耳机时声音自动走耳机，断开时切回喇叭。
+> **输出路由机制与避坑提示**：
+> 模板中无需硬编码输出目标，WirePlumber 会根据设备优先级（`priority.session`）自动选择后端的物理输出设备。
+> 默认情况下：蓝牙耳机优先级为 `1010`，板载声卡为 `1009`，因此连上蓝牙时自动走耳机，断开时切回喇叭。
+> **但注意**：若系统连接了 USB 麦克风（如自带耳放监听孔的 USB 麦克风）或 USB 外置声卡，Linux ALSA 默认会为其赋予高达 `1100+`（通常为 `1109`）的会话优先级。这会导致虚拟环绕声的输出被 USB 麦克风抢走，蓝牙耳机完全听不到声音。解决方法是在 WirePlumber 中将蓝牙输出节点的优先级调高（如 `1500`），详见下方配置。
 
 ## WirePlumber蓝牙LDAC配置
 
-蓝牙耳机在 Linux 下常有两个小痛点：
+蓝牙耳机在 Linux 下常有几个小痛点：
 1. 某些应用调用麦克风时，系统会自动切到通话模式（HSP/HFP），导致输出变成单声道且音质极差。
 2. 默认有时没用上最高码率的 LDAC。
+3. **输出优先级被 USB 设备抢占**：蓝牙设备的默认会话优先级（`1010`）低于 USB 声卡/麦克风（`1109`）。如果同时插着 USB 麦克风或外置声卡，虚拟环绕声会被 USB 设备抢占，导致耳机没声音。
 
 创建配置文件 `~/.config/wireplumber/wireplumber.conf.d/50-bluez-ldac.conf`：
 
@@ -80,6 +84,19 @@ monitor.bluez.rules = [
         # 强制锁定 LDAC 最高质量（990kbps）
         bluez5.a2dp.ldac.quality = "hq"
         bluez5.enable-hw-volume = true
+      }
+    }
+  },
+  {
+    matches = [
+      {
+        # 提升蓝牙输出节点的会话优先级，防止被 USB 麦克风/外置声卡（默认 1109）抢占
+        node.name = "~bluez_output.*"
+      }
+    ]
+    actions = {
+      update-props = {
+        priority.session = 1500
       }
     }
   }
