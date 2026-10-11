@@ -127,7 +127,17 @@ monitor.bluez.rules = [
    pactl set-default-sink effect_input.virtual-surround-7.1-hesuvi
    ```
 
-4. 检查蓝牙是否使用 LDAC：
+4. 运行 7.1 声道环绕声定位测试：
+
+   使用 `speaker-test` 测试 8 声道输出，系统会按顺序朗读对应声道（Front Left, Center, Front Right 等）：
+
+   ```bash
+   speaker-test -D pipewire -c 8 -t wav
+   ```
+
+   > **提示**：聆听各个方位的语音是否具有明显的空间方位感。按 `Ctrl + C` 可随时终止测试。
+
+5. 检查蓝牙是否使用 LDAC：
 
    连上支持 LDAC 的蓝牙耳机后运行：
 
